@@ -5,16 +5,13 @@ defmodule Benanachain do
   # for more information on OTP Applications
   def start(_type, _args) do
     import Supervisor.Spec
-    {:ok, agent} = Agent.start_link fn -> %{nodes: [], events: []} end
+    {:ok, agent} = Agent.start_link fn -> %{nodes: [], events: [], blocks: []} end
 
     # Define workers and child supervisors to be supervised
     children = [
-      # Start the Ecto repository
-      supervisor(Benanachain.Repo, []),
-      # Start the endpoint when the application starts
+      # supervisor(Benanachain.Repo, []),
+      
       supervisor(Benanachain.Endpoint, []),
-      # Start your own worker by calling: Benanachain.Worker.start_link(arg1, arg2, arg3)
-      # worker(Benanachain.Worker, [arg1, arg2, arg3]),
       
       worker(Benanachain.Client, [agent])
     ]

@@ -27,7 +27,17 @@ defmodule Benanachain.Client do
   end
 
   def init({:ok, agent}) do
+    deregister
+
     get_node_list |> decode_nodes |> store_nodes(agent)
+
+    node = choose_random_node(agent)
+
+    if node != nil do
+      node |> get_event_list |> decode_events |> store_events(agent)
+    end
+
+    register
 
     {:ok, %{agent: agent}}
   end
@@ -46,7 +56,7 @@ defmodule Benanachain.Client do
   end
 
   def handle_cast(:update_events, state = %{agent: agent}) do
-    choose_random_node |> get_event_list |> decode_events |> store_events(agent)
+    choose_random_node(agent) |> get_event_list |> decode_events |> store_events(agent)
 
     {:noreply, state}
   end
@@ -57,8 +67,21 @@ defmodule Benanachain.Client do
     {:noreply, state}
   end
 
+  def handle_cast({:add_block, block}, state = %{agent: agent}) do
+    agent |> add_block(block)
+
+    {:noreply, state}
+  end
+
   defp register do
-    {:ok, %HTTPoison.Response{status_code: 301}} = HTTPoison.post("http://localhost:4000/api/register", "")
+    case HTTPoison.post("http://localhost:4000/api/register", "") do
+      {:ok, %HTTPoison.Response{body: body, status_code: 201}} -> 
+        IO.puts body
+    end
+  end
+
+  defp deregister do
+    {:ok, _} = HTTPoison.post("http://localhost:4000/api/deregister", "")
   end
 
   defp get_node_list do
@@ -80,12 +103,18 @@ defmodule Benanachain.Client do
     Agent.get(agent, fn %{nodes: nodes} -> nodes end)
   end
 
-  defp choose_random_node do
-    Benanachain.Client.get_nodes |> Enum.random
+  defp choose_random_node(agent) do
+    nodes = get_stored_nodes(agent)
+
+    if Enum.count(nodes) > 0 do
+      nodes |> Enum.count
+    else
+      nil
+    end
   end
 
   defp get_event_list(node) do
-    {:ok, %HTTPoison.Response{body: body, status_code: 200}} = HTTPoison.get ("http://#{node["ip"]}:4000/api/events")
+    {:ok, %HTTPoison.Response{body: body, status_code: 200}} = HTTPoison.get("http://#{node["ip"]}:4001/api/events")
     body
   end
 
@@ -106,4 +135,23 @@ defmodule Benanachain.Client do
   defp add_event(agent, event) do
     Agent.update(agent, fn data = %{events: events} -> %{data | events: [event|events]} end)
   end
+
+  defp get_block_list(node) do
+    {:ok, %HTTPoison.Response{body: body, status_code: 200}} = HTTPoison.get("http://#{node["ip"]}:4001/api/blocks")
+    body
+  end
+
+  defp decode_blocks(blocks) do
+    {:ok, %{"blocks" => blocks}} = Poison.decode(blocks)
+
+    blocks
+  end
+
+  defp store_blocks(blocks, agent) do
+    Agent.update agent, fn data -> %{data | blocks: blocks} end
+  end
+
+  defp add_block(block, agent), do: Agent.update agent, fn data -> %{data | blocks: [block|blocks]} end
+
+  defp get_blocks(agent), do: Agent.get agent, fn %{blocks: blocks} -> blocks end
 end

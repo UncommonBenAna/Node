@@ -10,7 +10,7 @@ defmodule Benanachain.PageController do
   end
 
   def new_block(conn, _params) do
-
+    Benanachain.Client.add_block(conn.body)
   end
 
   def new_event(conn, %{"owner" => owner, "recipient" => recipient, "amount" => amount}) do
@@ -19,7 +19,7 @@ defmodule Benanachain.PageController do
 
     case cs.valid? do
       true ->
-        Benanachain.Repo.insert cs
+        Benanachain.Client.add_event(%{owner: owner, recipient: recipient, amount: amount})
         conn |> put_status(:created) |> send_resp(301, "")
       false ->
         conn |> put_status(500) |> send_resp(500, "")
