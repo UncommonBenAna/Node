@@ -5,6 +5,7 @@ defmodule Benanachain do
   # for more information on OTP Applications
   def start(_type, _args) do
     import Supervisor.Spec
+    {:ok, agent} = Agent.start_link fn -> %{nodes: [], events: []} end
 
     # Define workers and child supervisors to be supervised
     children = [
@@ -14,6 +15,8 @@ defmodule Benanachain do
       supervisor(Benanachain.Endpoint, []),
       # Start your own worker by calling: Benanachain.Worker.start_link(arg1, arg2, arg3)
       # worker(Benanachain.Worker, [arg1, arg2, arg3]),
+      
+      worker(Benanachain.Client, [agent])
     ]
 
     # See http://elixir-lang.org/docs/stable/elixir/Supervisor.html
